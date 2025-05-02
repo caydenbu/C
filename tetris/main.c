@@ -64,6 +64,13 @@ Piece createPiece(int PieceType){
     return piece;
 }
 
+void intro(){
+    printf("Welcome To Tetris\n");
+    printf("A,S,D to move, and Q,E to rotate\n");
+    printf("press enter to start:");
+    getchar();
+}
+
 void updateGrid(Piece *piece, int grid[20][10]){
     for (int i = 0; i<4; i++) {
         grid[piece->indexes[i][0]][piece->indexes[i][1]] = 1;
@@ -81,7 +88,7 @@ int piecePhysics(Piece *piece, int grid[20][10]){
     int found = 0;
     for (int i = 0; i<4; i++) {
         // checks bellow for collision
-        if(grid[piece->indexes[i][0]+1][piece->indexes[i][1]] != 0){
+        if(grid[piece->indexes[i][0]+1][piece->indexes[i][1]] != 0 || piece->indexes[i][0]+1 > 19){
             found = 1;
         }
         
@@ -100,8 +107,8 @@ int piecePhysics(Piece *piece, int grid[20][10]){
 void leftRight(Piece *piece, int grid[20][10], int dir){
     int found = 0;
 
-    // if input down or is rotation then dont move left or right
-    if(abs(dir) == 2 || dir == 0) return;
+    // if input down or is rotation or hard drop then dont move left or right
+    if(abs(dir) == 2 || dir == 0 || dir == 3) return;
 
     for (int i = 0; i<4; i++) {
         // checks towards direction for collision
@@ -119,12 +126,14 @@ void leftRight(Piece *piece, int grid[20][10], int dir){
     }
 }
 
-void printGrid(int grid[20][10]){
+void printGrid(int grid[20][10], int score){
 
     // Prints buffer between each new screen
-    for (int i = 0; i<1; i++) {
+    for (int i = 0; i<20; i++) {
         printf("\n");
     }
+    printf("Score: ");
+    printf("%d\n", score);
 
     for (int i = 0;i<20;i++) {
         // Prints 2x2 block if there is a block there
@@ -204,34 +213,95 @@ void rotate(Piece *piece, int grid[20][10], int dir){
     }
 }
 
-void update(Piece *piece, int grid[20][10], int dir){
+void clearLines(int grid[20][10], int *score){
 
+    // checks every line for full set of 1s 
+    for (int i = 0; i<20; i++) {
+        int found = 1;
+        // Checks if line is full
+        for (int j = 0; j<10; j++) {
+            if(grid[i][j]==0){
+                found = 0;
+            }
+        }
+        // If line is full
+        if(found){
+
+            // lower everything above that line
+            for (int j=i; j>0; j--) {
+                for (int k=0; k<10; k++) {
+                    grid[j][k] = grid[j-1][k];
+                }
+            }
+            // Clear top row
+            for (int j=0; j<10; j++) {
+                grid[0][j] = 0;
+            }
+            
+
+            *score += 100;
+            i--; // recheck after moving everything down?
+        }
+    }
+}
+
+int didLose(Piece *piece, int grid[20][10]){
+
+    int found = 0;
+    for (int i = 0; i<4; i++) {
+        // checks bellow for collision
+        if(grid[piece->indexes[i][0]][piece->indexes[i][1]] != 0){
+            found = 1;
+        }
+        
+        if(found) break;
+    }
+    return found;
+}
+
+int update(Piece *piece, int grid[20][10], int dir, int *score){
 
     int foundGround = 0; // collision check
     clearPiece(piece, grid);
 
     // movements and rotation
     leftRight(piece, grid, dir);
-    if(dir==0) foundGround = piecePhysics(piece, grid);
-    if(abs(dir)== 2) rotate(piece, grid, dir);
-
-    
-    updateGrid(piece,grid);
-    printGrid(grid);
-
-    // Creates a new piece if collision
-    if(foundGround){
-        *piece = createPiece(rand()%7);
-        updateGrid(piece,grid);
-        printGrid(grid);
+    if(dir==0) foundGround = piecePhysics(piece, grid); // if no left right then go down
+    if(abs(dir)== 2) rotate(piece, grid, dir); // if its a rotation dir then rotate
+    // hard drop
+    if(dir==3){
+        while(1){
+            foundGround = piecePhysics(piece, grid); 
+            if(foundGround) break;
+        }
     }
+    updateGrid(piece,grid);
+    printGrid(grid, *score);
+
+    if(foundGround){
+
+        clearLines(grid, score);
+        // Creates a new piece if collision
+        *piece = createPiece(rand()%7);
+
+        if(didLose(piece, grid)){
+            return 1;
+        }
+
+        updateGrid(piece,grid);
+        printGrid(grid, *score);
+    }
+    return 0;
 }
 
 int main()
 {
+    intro();
+
     // sets random seed
     srand(time(NULL));
 
+    int score = 0;
     int grid[20][10] = {0};
     Piece piece = createPiece(rand()%7);
 
@@ -243,7 +313,7 @@ int main()
         printf(">");
         fgets(input, sizeof(input), stdin);
 
-        // -1, 0, 1: movement, -2, 2: rotation
+        // -1, 0, 1: movement, -2, 2: rotation, 3: hard drop
         if(input[0] == 'a'){
             value = -1;
         }
@@ -258,11 +328,18 @@ int main()
         }
         else if(input[0] == 'e'){
             value = 2;
+        }else if(input[0]=='w'){
+            value = 3;
         }
 
-        update(&piece,grid, value);
+        int didLose = update(&piece, grid, value, &score);
+        // if you lose then break
+        if(didLose){
+            printf("you lost :( Score: ");
+            printf("%d\n", score);
+            break;
+        }
     }
-
 
     return 0;
 }
