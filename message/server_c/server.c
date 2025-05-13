@@ -56,8 +56,6 @@ int main(){
 
     // --------- Send and Read message ---------- //
 
-    char *message = "Hello from server \n";
-
     // Send and read
     while(1){
         valread = read(new_socket, buffer, 1024-1);

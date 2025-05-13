@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Client Page</title>
         <link href="client.css" rel="stylesheet">
+        <script src="./client.js" defer async></script>
     </head>
     <body>
         <header>
@@ -26,18 +27,10 @@
                 <div class="chat-target">
                     <p>TARGET_USERNAME</p>
                 </div>
-                <div class="chat-chat">
-                    <div class="chat-message">
-                        <p class="chat-message-name">Steve123</p>
-                        <p class="chat-message-text">You know whats crazy I think that sentence contains every letter in the alphabet</p>
-                    </div>
-                    <div class="chat-message">
-                        <p class="chat-message-name">Bob</p>
-                        <p class="chat-message-text">The quick brown fox jumps over the lazy dog.</p>
-                    </div>
+                <div class="chat-chat" id="chat-chat">
                 </div>
                 <div class="chat-input">
-                    <input type="text" name="" value="">
+                    <input id="messageInput" type="text" name="" value="">
                 </div>
             </section>
         </main>
