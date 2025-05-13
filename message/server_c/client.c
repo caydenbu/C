@@ -12,9 +12,10 @@ int main(int argc, char const* argv[]){
     int status, valread, client_fd;
     struct sockaddr_in serv_addr;
 
-    char *message = "Hello from client\n";
     char buffer[1024] = { 0 };
 
+
+    // --------- Full socket connection to server ---------- //
 
     // Socket creation & check
     if((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
@@ -37,11 +38,23 @@ int main(int argc, char const* argv[]){
         return -1;
     }
 
-    send(client_fd, message, strlen(message), 0);
-    printf("Message sent\n");
+    // --------- Send and Read message ---------- //
+    char message[1024];
 
-    valread = read(client_fd, buffer, 1024 - 1 /* remove null operator*/);
-    printf("%s\n", buffer);
+    while(1){
+        printf("> ");
+        fgets(message, sizeof(message), stdin);
+
+        // Exit condition
+        if (strncmp(message, "exit", 4)==0){
+            break;
+        }
+
+        send(client_fd, message, strlen(message), 0);
+
+        valread = read(client_fd, buffer, 1024 - 1 /* remove null operator*/);
+        buffer[valread] = '\0';
+    }
 
     // close the socket
     close(client_fd);

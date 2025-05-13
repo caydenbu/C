@@ -14,7 +14,8 @@ int main(){
     int opt = 1;
     socklen_t addrlen = sizeof(address);
     char buffer[1024]  = { 0 };
-    char *message = "Hello from server \n";
+
+    // --------- Full socket connection to server ---------- //
 
     // Create the socket
     if((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
@@ -53,11 +54,22 @@ int main(){
     }
 
 
+    // --------- Send and Read message ---------- //
+
+    char *message = "Hello from server \n";
+
     // Send and read
-    valread = read(new_socket, buffer, 1024-1);
-    printf("%s\n", buffer);
-    send(new_socket, message, strlen(message), 0);
-    printf("Message Sent From server\n");
+    while(1){
+        valread = read(new_socket, buffer, 1024-1);
+
+        if(valread <= 0) break; // client left
+
+        buffer[valread] = '\0';
+        printf("Client:%s\n", buffer);
+
+        //send(new_socket, message, strlen(message), 0);
+        send(new_socket, "\n", 1, 0); // blank line reply (just so client is stuck waiting for response)
+    }
 
     // Close the remaining sockets
     close(new_socket);
