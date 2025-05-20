@@ -1,15 +1,5 @@
-
-// Connect Websocket
-const ws = new WebSocket('ws://localhost:3000');
-
-// Print info to web terminal
-function addToConsole(text){
-
-    const webConsole = document.getElementById("console");
-    const p = document.createElement("p")
-    p.innerHTML="> " + text;
-    webConsole.append(p);
-}
+const WebSocket = require("ws");
+const ws = new WebSocket.Server({ port: 3000 });
 
 // Websocket connections status
 ws.onopen = () => {
@@ -17,9 +7,13 @@ ws.onopen = () => {
 };
 
 ws.onerror = (error) => {
-    addToConsole("WebSocket error (Server may be closed)");
+    addToConsole("WebSocket error");
 };
 
 ws.onclose = () => {
     addToConsole("Node server closed.");
-}
+};
+
+ws.onmessage = (event) => {
+    addToConsole(event.data);
+};
