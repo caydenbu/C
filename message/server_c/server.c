@@ -5,22 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define JS_PORT 8080
-#define C_PORT 9090
-
-#include <fcntl.h>  // open
-#include <stdio.h>  // perror
-#include <string.h> // strlen, snprintf
-#include <unistd.h> // write, close
-
-void send_to_pipe(const char *buffer) {
-  int fd = open("/tmp/server_pipe", O_WRONLY | O_NONBLOCK);
-  char message[1024];
-
-  snprintf(message, sizeof(message), "Client: %s\n", buffer);
-  ssize_t written = write(fd, message, strlen(message));
-}
-
+#define PORT 8080
 int main() {
 
   int server_fd, new_socket;
@@ -50,7 +35,7 @@ int main() {
 
   address.sin_family = AF_INET;
   address.sin_addr.s_addr = INADDR_ANY;
-  address.sin_port = htons(C_PORT);
+  address.sin_port = htons(PORT);
 
   // Bind socket
   if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
@@ -71,17 +56,16 @@ int main() {
 
   // --------- Send and Read message ---------- //
 
+  char *message = "Hello from server \n";
+
   // Send and read
   while (1) {
     valread = read(new_socket, buffer, 1024 - 1);
 
     if (valread <= 0)
       break; // client left
+
     buffer[valread] = '\0';
-
-    //  Send to websocket server
-    send_to_pipe(buffer);
-
     printf("Client:%s\n", buffer);
 
     // send(new_socket, message, strlen(message), 0);
