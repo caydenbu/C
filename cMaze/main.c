@@ -26,7 +26,6 @@ typedef struct Node {
 void CalculateF(Node* node, Node *endNode) {
     // calculate distance from node to end
     node->g = abs(endNode->x - node->x) + abs(endNode->y - node->y);
-    if (!node->h) node->h = 0; // incase node is uninitialized for some reason
     node->f = node->g + node->h;
 }
 
@@ -56,25 +55,41 @@ void PrintGrid(int grid[10][10], int startIndex[2], int endIndex[2]) {
     }
 }
 
+int nodeInSet(Node *node, Node **set, int length) {
+    for (int i = 0; i < length; ++i) {
+        if (node == set[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int main() {
 
     // Create Grid
     Node grid[GRAPH_HEIGHT][GRAPH_WIDTH];
     for (int i = 0; i < GRAPH_HEIGHT; i++) {
         for (int j = 0; j < GRAPH_WIDTH; j++) {
-            Node node;
-            node.y = i;
-            node.x = j;
-            grid[i][j] = node;
+            Node *n = &grid[i][j];
+            n->x = i;
+            n->y = j;
+            n->f = 0;
+            n->g = 0;
+            n->h = 0;
+            n->previous = NULL;
+            n->neighbors = NULL;
+            n->neighbor_count = 0;
         }
     }
 
 
     Node *start = &grid[0][0];
+    start->h = 0;
     Node *end = &grid[GRAPH_HEIGHT - 1][GRAPH_WIDTH - 1];
 
     int openLen = 1;
-    Node **openSet = {start};
+    Node **openSet = malloc(sizeof(Node *));
+    openSet[0] = start;
     int closedLen = 0;
     Node **closedSet;
 
@@ -98,12 +113,39 @@ int main() {
             CalculateNeigbors(&current, grid);
 
             for (int i = 0; i < current.neighbor_count; ++i) {
-               // if neightbor is in closed continue
+               // if neighbor is in closed continue
+                if (nodeInSet(current.neighbors[i], closedSet, closedLen)) {
+                    continue;
+                }
 
-                // else add all neighbors to open
-                // neighbors h = current += 1 and neighbors previous = current
+                // Calculate all needed values for each neighbor node
+                Node neighborNode = *current.neighbors[i];
+                neighborNode.previous = &current;
 
+                int temph = current.h + 1;
+                neighborNode.h = temph;
+
+                // Add all the neighbors to the open set
+                openSet = realloc(openSet, (openLen + 1) * sizeof(Node *));
+                openSet[openLen++] = &neighborNode;
             }
+
+            // remove the current node from open to closed set
+            openLen--;
+            if (openLen == 0) {
+                free(openSet);
+                openSet = NULL;
+            }else {
+                // replaces the currents position in openset with the last element
+                openSet[lowestWieghtIndex] = openSet[openLen - 1];
+                // removes the last element from the list
+                openSet = realloc(openSet, openLen * sizeof(Node *));
+            }
+
+            // add the current node to closed set
+            closedLen++;
+            closedSet = realloc(closedSet, closedLen * sizeof(Node *));
+            closedSet[closedLen - 1] = &current;
         }
     }
 
