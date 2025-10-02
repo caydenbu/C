@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <arm/limits.h>
 
 // Globals
 const int GRAPH_WIDTH = 10;
@@ -25,7 +26,7 @@ typedef struct Node {
 
 void CalculateF(Node* node, Node *endNode) {
     // calculate distance from node to end
-    node->g = abs(endNode->x - node->x) + abs(endNode->y - node->y);
+    node->h = abs(endNode->x - node->x) + abs(endNode->y - node->y);
     node->f = node->g + node->h;
 }
 
@@ -33,23 +34,49 @@ void CalculateNeigbors(Node *node, Node grid[GRAPH_HEIGHT][GRAPH_WIDTH]) {
     int count = 0;
 
     Node **tmp = realloc(node->neighbors, 4 * sizeof *tmp);
+    if (!tmp) return;          // optional: handle OOM
     node->neighbors = tmp;
 
-    if (node->x > 0)   node->neighbors[count++] = &grid[node->x - 1][node->y];
-    if (node->x < GRAPH_WIDTH-1)   node->neighbors[count++] = &grid[node->x + 1][node->y];
-    if (node->y > 0)   node->neighbors[count++] = &grid[node->x][node->y - 1];
-    if (node->y < GRAPH_HEIGHT-1)   node->neighbors[count++] = &grid[node->x][node->y + 1];
+    if (node->x > 0)                node->neighbors[count++] = &grid[node->y][node->x - 1];
+    if (node->x < GRAPH_WIDTH - 1)  node->neighbors[count++] = &grid[node->y][node->x + 1];
+    if (node->y > 0)                node->neighbors[count++] = &grid[node->y - 1][node->x];
+    if (node->y < GRAPH_HEIGHT - 1) node->neighbors[count++] = &grid[node->y + 1][node->x];
 
-    // shrink to exact size (optional)
     Node **shrunk = realloc(node->neighbors, count * sizeof *shrunk);
     if (shrunk) node->neighbors = shrunk;
-
     node->neighbor_count = count;
 }
 
-void PrintGrid(int grid[10][10], int startIndex[2], int endIndex[2]) {
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
+void PrintGrid(Node grid[GRAPH_HEIGHT][GRAPH_WIDTH], Node start, Node end, Node **openSet, int openLen, Node **closedSet, int closedLen) {
+
+    // Turn openSet and closed set into a grid of ints
+    int intGrid[GRAPH_HEIGHT][GRAPH_WIDTH];
+
+    // Fill with zeros
+    for (int i = 0; i < GRAPH_HEIGHT; ++i) {
+        for(int j = 0; j < GRAPH_WIDTH; j++) {
+            intGrid[i][j] = 0;
+        }
+    }
+    // Fill out openSet
+    for (int i = 0; i < openLen; ++i) {
+        intGrid[openSet[i]->y][openSet[i]->x] = 1;
+    }
+    // Fill out closedSet
+    for (int i = 0; i < closedLen; ++i) {
+        intGrid[closedSet[i]->y][closedSet[i]->x] = 2;
+    }
+
+    // Print Grid
+    for (int i = 0; i < GRAPH_HEIGHT; i++) {
+        for (int j = 0; j < GRAPH_WIDTH; j++) {
+            if (intGrid[i][j] == 1) {
+                printf("#"); // open
+            }else if (intGrid[i][j] == 2) {
+                printf("*"); // closed
+            }else {
+                printf(".");
+            }
         }
         printf("\n");
     }
@@ -65,16 +92,15 @@ int nodeInSet(Node *node, Node **set, int length) {
 }
 
 int main() {
-
     // Create Grid
     Node grid[GRAPH_HEIGHT][GRAPH_WIDTH];
     for (int i = 0; i < GRAPH_HEIGHT; i++) {
         for (int j = 0; j < GRAPH_WIDTH; j++) {
             Node *n = &grid[i][j];
-            n->x = i;
-            n->y = j;
+            n->x = j;
+            n->y = i;
             n->f = 0;
-            n->g = 0;
+            n->g = INT8_MAX;
             n->h = 0;
             n->previous = NULL;
             n->neighbors = NULL;
@@ -91,62 +117,60 @@ int main() {
     Node **openSet = malloc(sizeof(Node *));
     openSet[0] = start;
     int closedLen = 0;
-    Node **closedSet;
+    Node **closedSet = NULL;
 
 
-    while (openSet) {
+    while (openLen > 0) {
+
         int lowestWieghtIndex = 0;
+
         for (int i = 0; i < openLen; i++) {
-
-            // Pick the lowest weight of all open set
             CalculateF(openSet[i], end);
-            if (openSet[i]->f < openSet[lowestWieghtIndex]->f) {
-                lowestWieghtIndex = i;
-            }
-
-            // Check if reached the end node
-            if (openSet[lowestWieghtIndex] == end) {
-                break; // path is found
-            }
-
-            Node current = *openSet[lowestWieghtIndex];
-            CalculateNeigbors(&current, grid);
-
-            for (int i = 0; i < current.neighbor_count; ++i) {
-               // if neighbor is in closed continue
-                if (nodeInSet(current.neighbors[i], closedSet, closedLen)) {
-                    continue;
-                }
-
-                // Calculate all needed values for each neighbor node
-                Node neighborNode = *current.neighbors[i];
-                neighborNode.previous = &current;
-
-                int temph = current.h + 1;
-                neighborNode.h = temph;
-
-                // Add all the neighbors to the open set
-                openSet = realloc(openSet, (openLen + 1) * sizeof(Node *));
-                openSet[openLen++] = &neighborNode;
-            }
-
-            // remove the current node from open to closed set
-            openLen--;
-            if (openLen == 0) {
-                free(openSet);
-                openSet = NULL;
-            }else {
-                // replaces the currents position in openset with the last element
-                openSet[lowestWieghtIndex] = openSet[openLen - 1];
-                // removes the last element from the list
-                openSet = realloc(openSet, openLen * sizeof(Node *));
-            }
-
-            // add the current node to closed set
-            closedLen++;
-            closedSet = realloc(closedSet, closedLen * sizeof(Node *));
-            closedSet[closedLen - 1] = &current;
+            CalculateF(openSet[lowestWieghtIndex], end);
+            if (openSet[i]->f < openSet[lowestWieghtIndex]->f) lowestWieghtIndex = i;
         }
+
+        Node *current = &*openSet[lowestWieghtIndex];
+        // Check if reached the end node
+        if (current == end) {
+            break; // path is found
+        }
+
+        CalculateNeigbors(current, grid);
+
+        for (int i = 0; i < current->neighbor_count; ++i) {
+            // if neighbor is in closed continue
+            Node neighborNode = *current->neighbors[i];
+            if (nodeInSet(&neighborNode, closedSet, closedLen)) {
+                continue;
+            }
+
+            // Calculate all needed values for each neighbor node
+            neighborNode.previous = &current;
+
+            int tempg = current->g + 1;
+            if (tempg < neighborNode.g) {
+                neighborNode.g = tempg;
+            }
+
+            // Add all the neighbors to the open set
+            openSet = realloc(openSet, (openLen + 1) * sizeof(Node *));
+            openSet[openLen++] = &neighborNode;
+        }
+
+        // remove the current node from open to closed set
+        openSet[lowestWieghtIndex] = openSet[openLen - 1];
+        openLen--;
+        openSet = realloc(openSet, openLen * sizeof *openSet);
+
+        Node **cTmp = realloc(closedSet, (closedLen + 1) * sizeof *closedSet);
+        if (!cTmp) break;
+        closedSet = cTmp;
+        closedSet[closedLen++] = current;
+
+        PrintGrid(grid, *start, *end, openSet, openLen, closedSet, closedLen);
+
+        printf("\n");
     }
 
     return 0;
